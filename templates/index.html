@@ -417,6 +417,188 @@
       color: var(--success);
     }
 
+    /* ── Viewer Modal ──────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn .25s ease;
+    }
+    .modal-overlay.show { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(24px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      width: 90%;
+      max-width: 520px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 0 0 1px rgba(59,130,246,.08);
+      animation: slideUp .3s ease;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .modal-header h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.3rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: background .15s, color .15s;
+      line-height: 1;
+    }
+    .modal-close:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .modal-subtitle {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .modality-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .modality-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 18px 14px;
+      background: var(--surface-2);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: border-color .2s, background .2s, box-shadow .2s, transform .15s;
+      text-align: center;
+    }
+    .modality-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+      box-shadow: 0 0 16px 2px var(--accent-glow);
+      transform: translateY(-2px);
+    }
+    .modality-card.selected {
+      border-color: var(--accent);
+      background: rgba(59,130,246,.15);
+      box-shadow: 0 0 20px 4px var(--accent-glow);
+    }
+    .modality-card .mod-icon {
+      font-size: 1.5rem;
+    }
+    .modality-card .mod-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--accent);
+      word-break: break-all;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1.5px solid var(--border);
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .btn-ghost:hover {
+      border-color: var(--text-dim);
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .modal-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--surface-2);
+      border-radius: 8px;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      margin-bottom: 18px;
+    }
+    .modal-info .info-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .no-modalities-msg {
+      text-align: center;
+      padding: 24px 16px;
+      color: var(--text-dim);
+      font-size: 0.84rem;
+      line-height: 1.6;
+    }
+    .no-modalities-msg .icon { font-size: 1.8rem; margin-bottom: 8px; }
+
+    .modal-loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 30px;
+      color: var(--text-dim);
+      font-size: 0.84rem;
+    }
+    .modal-loading .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    .viewer-success-banner {
+      display: none;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      background: rgba(34,197,94,.08);
+      border: 1px solid rgba(34,197,94,.25);
+      color: #86efac;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .viewer-success-banner.show { display: block; }
+
     /* ── Footer ────────────────────────────────────────── */
     .footer {
       text-align: center;
@@ -522,7 +704,41 @@
   <!-- Import Result -->
   <div class="result-banner" id="importResult"></div>
 
+  <!-- Viewer Success -->
+  <div class="viewer-success-banner" id="viewerSuccessBanner"></div>
+
   <div class="footer">DICOM Importer · Powered by FastAPI &amp; Orthanc</div>
+</div>
+
+<!-- ── Viewer Selection Modal ─────────────────────────── -->
+<div class="modal-overlay" id="viewerModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>📡 Send to DICOM Viewer</h2>
+      <button class="modal-close" id="modalCloseBtn" onclick="closeViewerModal()">&times;</button>
+    </div>
+    <div class="modal-subtitle" id="modalSubtitle">
+      Select a registered DICOM modality (viewer) to send the uploaded studies via C-STORE.
+    </div>
+    <div class="modal-info">
+      <span class="info-icon">ℹ️</span>
+      <span id="modalStudyCount">0 study(ies) ready to send</span>
+    </div>
+    <div id="modalContent">
+      <div class="modal-loading" id="modalLoading">
+        <div class="spinner"></div>
+        <span>Fetching modalities from Orthanc…</span>
+      </div>
+      <div class="modality-grid" id="modalityGrid" style="display:none;"></div>
+      <div class="no-modalities-msg" id="noModalitiesMsg" style="display:none;"></div>
+    </div>
+    <div class="modal-actions" id="modalActions" style="display:none;">
+      <button class="btn btn-ghost" onclick="closeViewerModal()">Skip</button>
+      <button class="btn btn-primary" id="btnSendViewer" onclick="sendToViewer()" disabled>
+        📡 Send to Viewer
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -530,6 +746,10 @@
 
   // Store study file lists from scan response
   let studyFilesMap = [];  // [{files: [...], study_uid: ...}, ...]
+
+  // Store Orthanc study IDs returned after upload (for viewer selection)
+  let pendingOrthancStudyIds = [];
+  let selectedModality = '';
   // ── Helpers ──────────────────────────────────────────
   const $ = id => document.getElementById(id);
 
@@ -717,6 +937,12 @@
 
       setStatus('Study uploaded successfully', 'active');
       setTimeout(() => showProgress(false), 800);
+
+      // Show viewer selection if studies were indexed
+      if (data.orthanc_study_ids && data.orthanc_study_ids.length) {
+        pendingOrthancStudyIds = data.orthanc_study_ids;
+        showViewerModal();
+      }
     } catch (e) {
       clearInterval(pollId);
       btn.disabled = false;
@@ -769,6 +995,12 @@
 
       setStatus('Upload complete', 'active');
       setTimeout(() => showProgress(false), 800);
+
+      // Show viewer selection if studies were indexed
+      if (data.orthanc_study_ids && data.orthanc_study_ids.length) {
+        pendingOrthancStudyIds = data.orthanc_study_ids;
+        showViewerModal();
+      }
     } catch (e) {
       clearInterval(pollId);
       const banner = $('importResult');
@@ -778,6 +1010,128 @@
       showProgress(false);
     }
     $('btnImport').disabled = false;
+  }
+
+  // ── Viewer Selection Modal ──────────────────────────────
+  function showViewerModal() {
+    const modal = $('viewerModal');
+    selectedModality = '';
+    $('btnSendViewer').disabled = true;
+    $('modalStudyCount').textContent = pendingOrthancStudyIds.length + ' study(ies) ready to send';
+    $('modalLoading').style.display = 'flex';
+    $('modalityGrid').style.display = 'none';
+    $('noModalitiesMsg').style.display = 'none';
+    $('modalActions').style.display = 'none';
+    $('viewerSuccessBanner').classList.remove('show');
+    modal.classList.add('show');
+    loadModalities();
+  }
+
+  function closeViewerModal() {
+    $('viewerModal').classList.remove('show');
+  }
+
+  // Close modal on overlay click (not on inner box)
+  $('viewerModal').addEventListener('click', function(e) {
+    if (e.target === this) closeViewerModal();
+  });
+
+  // Close modal on Escape key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeViewerModal();
+  });
+
+  async function loadModalities() {
+    try {
+      const r = await fetch(API + '/modalities');
+      const data = await r.json();
+
+      $('modalLoading').style.display = 'none';
+
+      if (data.modalities && data.modalities.length) {
+        const grid = $('modalityGrid');
+        grid.innerHTML = '';
+        grid.style.display = 'grid';
+        $('modalActions').style.display = 'flex';
+
+        data.modalities.forEach(name => {
+          const card = document.createElement('div');
+          card.className = 'modality-card';
+          card.innerHTML = `
+            <span class="mod-icon">🖥️</span>
+            <span class="mod-name">${name}</span>`;
+          card.onclick = () => {
+            grid.querySelectorAll('.modality-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedModality = name;
+            $('btnSendViewer').disabled = false;
+          };
+          grid.appendChild(card);
+        });
+
+        // Auto-select if only one modality
+        if (data.modalities.length === 1) {
+          const firstCard = grid.querySelector('.modality-card');
+          firstCard.classList.add('selected');
+          selectedModality = data.modalities[0];
+          $('btnSendViewer').disabled = false;
+        }
+      } else {
+        $('noModalitiesMsg').style.display = 'block';
+        $('noModalitiesMsg').innerHTML = `
+          <div class="icon">📡</div>
+          <div><strong>No DICOM viewers registered</strong></div>
+          <div style="margin-top:6px;">Register a viewer (RadiAnt, OsiriX, Horos, etc.) in<br>
+          Orthanc → Configuration → DicomModalities</div>`;
+        $('modalActions').style.display = 'flex';
+        $('btnSendViewer').style.display = 'none';
+      }
+    } catch (e) {
+      $('modalLoading').style.display = 'none';
+      $('noModalitiesMsg').style.display = 'block';
+      $('noModalitiesMsg').innerHTML = `
+        <div class="icon">⚠️</div>
+        <div>Could not fetch modalities from Orthanc</div>`;
+      $('modalActions').style.display = 'flex';
+      $('btnSendViewer').style.display = 'none';
+    }
+  }
+
+  async function sendToViewer() {
+    if (!selectedModality || !pendingOrthancStudyIds.length) return;
+
+    const btn = $('btnSendViewer');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;"></span> Sending…';
+
+    try {
+      const r = await fetch(API + '/send-to-viewer', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          modality: selectedModality,
+          study_ids: pendingOrthancStudyIds,
+        }),
+      });
+      const data = await r.json();
+
+      if (r.ok) {
+        closeViewerModal();
+        const banner = $('viewerSuccessBanner');
+        banner.classList.add('show');
+        banner.innerHTML = `📡 <strong>${data.studies_sent} study(ies)</strong> sent to <strong>${data.modality}</strong> via C-STORE`;
+        setStatus(`Studies sent to ${data.modality}`, 'active');
+        setTimeout(() => banner.classList.remove('show'), 8000);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '📡 Send to Viewer';
+        setStatus('C-STORE failed: ' + (data.error || 'Unknown error'), 'error');
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.innerHTML = '📡 Send to Viewer';
+      setStatus('C-STORE request failed: ' + e.message, 'error');
+    }
   }
 </script>
 </body>

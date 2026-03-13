@@ -15,7 +15,7 @@ from typing import Optional, List
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 app = FastAPI()
 
@@ -504,12 +504,8 @@ def _prompt_modality(modalities: list) -> int:
 
 async def send_to_viewer(orthanc_study_ids: list) -> None:
     """
-    Query Orthanc for registered modalities (DICOM viewers) and C-STORE
-    the uploaded studies to one of them.
-
-      0 modalities → prints a message and returns.
-      1 modality   → sends automatically, no prompt.
-      2+ modalities → prompts user in terminal to pick one.
+    Log collected Orthanc study IDs. Actual viewer selection is now
+    handled via the frontend through the /send-to-viewer endpoint.
     """
     if not orthanc_study_ids:
         print("[CSTORE] No Orthanc study IDs collected — skipping C-STORE.")
@@ -519,28 +515,7 @@ async def send_to_viewer(orthanc_study_ids: list) -> None:
         modalities = await _list_modalities(client)
 
     print(f"[CSTORE] Orthanc modalities found: {modalities if modalities else 'none'}")
-
-    if not modalities:
-        print("[CSTORE] No modalities registered in Orthanc.")
-        print("[CSTORE] Register your DICOM viewer (RadiAnt, OsiriX, etc.) in")
-        print("[CSTORE]   Orthanc → Configuration → DicomModalities, then retry.")
-        return
-
-    # Choose modality
-    if len(modalities) == 1:
-        chosen = modalities[0]
-        print(f"[CSTORE] One modality found — auto-sending to '{chosen}' ...")
-    else:
-        loop   = asyncio.get_event_loop()
-        idx    = await loop.run_in_executor(None, _prompt_modality, modalities)
-        if idx < 0:
-            print("[CSTORE] Skipped — studies not forwarded to any viewer.")
-            return
-        chosen = modalities[idx]
-
-    # Send
-    async with httpx.AsyncClient(auth=ORTHANC_AUTH, http2=True, timeout=300) as client:
-        await _cstore_to_modality(client, chosen, orthanc_study_ids)
+    print(f"[CSTORE] {len(orthanc_study_ids)} study ID(s) ready for viewer selection via frontend.")
 
 
 # ---------------------------------------------------------------------------
@@ -559,6 +534,40 @@ async def api_detect_drives():
     """Return list of detected removable / optical drives."""
     drives = detect_cd_drives()
     return {"drives": drives}
+
+
+@app.get("/modalities")
+async def api_modalities():
+    """Return list of DICOM modalities (viewers) registered in Orthanc."""
+    async with httpx.AsyncClient(auth=ORTHANC_AUTH, http2=True, timeout=30) as client:
+        modalities = await _list_modalities(client)
+    return {"modalities": modalities}
+
+
+@app.post("/send-to-viewer")
+async def api_send_to_viewer(payload: dict):
+    """
+    Send Orthanc study IDs to a specific DICOM modality via C-STORE.
+    Expects JSON: {"modality": "RADIANT", "study_ids": ["abc", "def"]}
+    """
+    modality = payload.get("modality", "").strip()
+    study_ids = payload.get("study_ids", [])
+
+    if not modality:
+        return JSONResponse({"error": "No modality specified"}, status_code=400)
+    if not study_ids:
+        return JSONResponse({"error": "No study IDs provided"}, status_code=400)
+
+    async with httpx.AsyncClient(auth=ORTHANC_AUTH, http2=True, timeout=300) as client:
+        ok = await _cstore_to_modality(client, modality, study_ids)
+
+    if ok:
+        return {"status": "success", "modality": modality, "studies_sent": len(study_ids)}
+    else:
+        return JSONResponse(
+            {"error": f"C-STORE to '{modality}' failed", "modality": modality},
+            status_code=502,
+        )
 
 
 @app.get("/progress")
@@ -671,6 +680,7 @@ async def upload_study(payload: dict):
         "total_scanned": len(file_list),
         "successfully_indexed": len(captured),
         "total_time_sec": round(duration, 2),
+        "orthanc_study_ids": orthanc_study_ids,
     }
 
 
@@ -722,6 +732,7 @@ async def fast_import():
         "total_scanned": total_files,
         "successfully_indexed": len(captured),
         "total_time_sec": round(duration, 2),
+        "orthanc_study_ids": orthanc_study_ids,
     }
 
 
