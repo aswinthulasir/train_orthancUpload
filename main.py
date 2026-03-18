@@ -34,7 +34,6 @@ MAX_CONCURRENT_UPLOADS = 48
 semaphore = asyncio.Semaphore(MAX_CONCURRENT_UPLOADS)
 
 progress_counter = 0
-progress_total = 0
 IGNORED_EXTS = ('.exe', '.inf', '.htm', '.html', '.jar', '.txt', '.xml', '.bmp', '.png', '.ico')
 
 # Thread pool size for fallback per-file header scanning
@@ -406,13 +405,9 @@ async def upload_single_file(client, file_path, total_files):
 
     async with semaphore:
         try:
-            # CHANGE 2: Use aiofiles for non-blocking reads.
-            # Previously, open() was synchronous — it blocked the entire event loop
-            # while the CD drive spun up. With aiofiles, the loop stays free to
-            # fire off other uploads while one file is being read from disk.
             async with aiofiles.open(file_path, "rb") as f:
                 content = await f.read()
-            
+
             if not content:
                 return None
 
@@ -428,7 +423,7 @@ async def upload_single_file(client, file_path, total_files):
                 print(f"[{get_ts()}] [PROGRESS] {progress_counter}/{total_files} ({percent:.1f}%)")
 
             if response.status_code == 200:
-                return response.json().get("ParentStudy")
+                return response.json().get("ID")
             return None
 
         except Exception:
@@ -570,11 +565,6 @@ async def api_send_to_viewer(payload: dict):
         )
 
 
-@app.get("/progress")
-async def api_progress():
-    """Return current upload progress for the frontend progress bar."""
-    return {"done": progress_counter, "total": progress_total}
-
 @app.get("/scan")
 async def api_scan(path: str = Query(default=None, description="Override scan path")):
     """
@@ -643,13 +633,12 @@ async def upload_study(payload: dict):
     Upload a single study's files to Orthanc.
     Expects JSON: {"files": ["path1", "path2", ...]}
     """
-    global progress_counter, progress_total
+    global progress_counter
     file_list = payload.get("files", [])
     if not file_list:
         return {"error": "No files provided"}
 
     progress_counter = 0
-    progress_total = len(file_list)
     t_start = time.monotonic()
 
     print(f"[{get_ts()}] [UPLOAD-STUDY] Uploading {len(file_list)} file(s)...")
@@ -686,10 +675,9 @@ async def upload_study(payload: dict):
 
 @app.post("/fast-import")
 async def fast_import(payload: Optional[dict] = None):
-    global progress_counter, progress_total
+    global progress_counter
     progress_counter = 0
-    progress_total = 0
-    t_start = time.monotonic()                                                                                                                                                                                                                                                                                                                                  
+    t_start = time.monotonic()
 
     # Use path from the frontend if provided, otherwise fall back to SOURCE_PATH
     import_path = (payload or {}).get("path", "").strip() if payload else ""
@@ -705,7 +693,6 @@ async def fast_import(payload: Optional[dict] = None):
         for f in filenames
     ]
     total_files = len(files_to_process)
-    progress_total = total_files
     print(f"[{get_ts()}] [SERVER] Found {total_files} files. Starting import...")
 
     # CHANGE 3: Enable HTTP/2. This lets httpx multiplex all requests over a

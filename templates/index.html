@@ -272,7 +272,7 @@
       50%      { opacity: .35; }
     }
 
-    /* ── Progress ──────────────────────────────────────── */
+    /* ── Progress (scan only) ───────────────────────────── */
     .progress-wrap {
       display: none;
       margin-top: 14px;
@@ -298,6 +298,48 @@
       color: var(--text-dim);
       margin-top: 6px;
       text-align: right;
+    }
+
+    /* ── Upload Spinner Overlay ───────────────────────── */
+    .upload-spinner-wrap {
+      display: none;
+      margin-top: 18px;
+    }
+    .upload-spinner-wrap.show { display: block; }
+
+    .upload-spinner-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 28px 20px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .upload-ring {
+      width: 44px;
+      height: 44px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-right-color: var(--accent);
+      border-radius: 50%;
+      animation: uploadSpin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+    @keyframes uploadSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .upload-spinner-text {
+      font-size: 0.84rem;
+      color: var(--text-dim);
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .upload-spinner-text strong {
+      color: var(--accent);
     }
 
     /* ── Results Table ─────────────────────────────────── */
@@ -654,12 +696,22 @@
     </div>
   </div>
 
-  <!-- Progress -->
+  <!-- Progress (scan only) -->
   <div class="progress-wrap" id="progressWrap">
     <div class="progress-track">
       <div class="progress-fill" id="progressFill"></div>
     </div>
     <div class="progress-label" id="progressLabel">Scanning…</div>
+  </div>
+
+  <!-- Upload Spinner -->
+  <div class="upload-spinner-wrap" id="uploadSpinnerWrap">
+    <div class="upload-spinner-inner">
+      <div class="upload-ring"></div>
+      <div class="upload-spinner-text" id="uploadSpinnerText">
+        Uploading to Orthanc…<br><span style="font-size:0.76rem;">Progress is printed in the terminal</span>
+      </div>
+    </div>
   </div>
 
   <!-- Scan Results -->
@@ -857,6 +909,7 @@
       const tbody = $('studyTableBody');
       tbody.innerHTML = '';
       studyFilesMap = [];
+
       if (data.studies_list && data.studies_list.length) {
         data.studies_list.forEach((s, idx) => {
           studyFilesMap.push({ files: s.files || [], study_uid: s.study_uid });
@@ -890,7 +943,7 @@
     $('btnScan').disabled = false;
   }
 
-  // ── Upload Single Study ────────────────────────────────
+  // ── Upload Single Study ──────────────────────────────
   async function doUploadStudy(idx) {
     const study = studyFilesMap[idx];
     if (!study || !study.files.length) {
@@ -902,18 +955,7 @@
     btn.disabled = true;
     btn.textContent = 'Uploading…';
     setStatus(`Uploading study ${idx + 1} (${study.files.length} files)…`, 'loading');
-    showProgress(true, 5, 'Starting upload…');
-
-    let pollId = setInterval(async () => {
-      try {
-        const r = await fetch(API + '/progress');
-        const d = await r.json();
-        if (d.total > 0) {
-          const pct = Math.min(99, Math.round((d.done / d.total) * 100));
-          showProgress(true, pct, `${d.done} / ${d.total} files (${pct}%)`);
-        }
-      } catch(_){}
-    }, 1000);
+    showUploadSpinner(`Uploading <strong>${study.files.length}</strong> files…`);
 
     try {
       const r = await fetch(API + '/upload-study', {
@@ -922,8 +964,7 @@
         body: JSON.stringify({ files: study.files }),
       });
       const data = await r.json();
-      clearInterval(pollId);
-      showProgress(true, 100, 'Upload complete');
+      hideUploadSpinner();
 
       btn.outerHTML = `<span class="uploaded-label">✓ Done</span>`;
 
@@ -936,7 +977,6 @@
         Time: <strong>${data.total_time_sec}s</strong>`;
 
       setStatus('Study uploaded successfully', 'active');
-      setTimeout(() => showProgress(false), 800);
 
       // Show viewer selection if studies were indexed
       if (data.orthanc_study_ids && data.orthanc_study_ids.length) {
@@ -944,14 +984,13 @@
         showViewerModal();
       }
     } catch (e) {
-      clearInterval(pollId);
+      hideUploadSpinner();
       btn.disabled = false;
       btn.textContent = '⬆ Upload';
       const banner = $('importResult');
       banner.className = 'result-banner show error';
       banner.innerHTML = `<strong>✕ Upload Failed</strong><br>${e.message}`;
       setStatus('Upload failed', 'error');
-      showProgress(false);
     }
   }
 
@@ -961,20 +1000,9 @@
     if (!path) { setStatus('Enter a source path first', 'error'); return; }
 
     setStatus('Uploading all to Orthanc…', 'loading');
-    showProgress(true, 5, 'Starting upload…');
     $('btnImport').disabled = true;
     $('importResult').classList.remove('show');
-
-    let pollId = setInterval(async () => {
-      try {
-        const r = await fetch(API + '/progress');
-        const d = await r.json();
-        if (d.total > 0) {
-          const pct = Math.min(99, Math.round((d.done / d.total) * 100));
-          showProgress(true, pct, `${d.done} / ${d.total} files (${pct}%)`);
-        }
-      } catch(_){}
-    }, 1500);
+    showUploadSpinner(`Uploading all files from <strong>${path}</strong>…`);
 
     try {
       const r = await fetch(API + '/fast-import', {
@@ -983,10 +1011,9 @@
         body: JSON.stringify({ path: path }),
       });
       const data = await r.json();
-      clearInterval(pollId);
+      hideUploadSpinner();
 
       if (data.error) {
-        showProgress(false);
         const banner = $('importResult');
         banner.className = 'result-banner show error';
         banner.innerHTML = `<strong>✕ Upload Failed</strong><br>${data.error}`;
@@ -994,8 +1021,6 @@
         $('btnImport').disabled = false;
         return;
       }
-
-      showProgress(true, 100, 'Upload complete');
 
       // Mark all rows as done
       studyFilesMap.forEach((_, i) => {
@@ -1012,7 +1037,6 @@
         Time: <strong>${data.total_time_sec}s</strong>`;
 
       setStatus('Upload complete', 'active');
-      setTimeout(() => showProgress(false), 800);
 
       // Show viewer selection if studies were indexed
       if (data.orthanc_study_ids && data.orthanc_study_ids.length) {
@@ -1020,14 +1044,22 @@
         showViewerModal();
       }
     } catch (e) {
-      clearInterval(pollId);
+      hideUploadSpinner();
       const banner = $('importResult');
       banner.className = 'result-banner show error';
       banner.innerHTML = `<strong>✕ Import Failed</strong><br>${e.message}`;
       setStatus('Upload failed', 'error');
-      showProgress(false);
     }
     $('btnImport').disabled = false;
+  }
+
+  // ── Upload Spinner Helpers ──────────────────────────────
+  function showUploadSpinner(msg) {
+    $('uploadSpinnerText').innerHTML = msg + '<br><span style="font-size:0.76rem;">Progress is printed in the terminal</span>';
+    $('uploadSpinnerWrap').classList.add('show');
+  }
+  function hideUploadSpinner() {
+    $('uploadSpinnerWrap').classList.remove('show');
   }
 
   // ── Viewer Selection Modal ──────────────────────────────
