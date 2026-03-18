@@ -957,6 +957,9 @@
 
   // ── Import All ─────────────────────────────────────────
   async function doImport() {
+    const path = $('pathInput').value.trim();
+    if (!path) { setStatus('Enter a source path first', 'error'); return; }
+
     setStatus('Uploading all to Orthanc…', 'loading');
     showProgress(true, 5, 'Starting upload…');
     $('btnImport').disabled = true;
@@ -974,9 +977,24 @@
     }, 1500);
 
     try {
-      const r = await fetch(API + '/fast-import', { method: 'POST' });
+      const r = await fetch(API + '/fast-import', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ path: path }),
+      });
       const data = await r.json();
       clearInterval(pollId);
+
+      if (data.error) {
+        showProgress(false);
+        const banner = $('importResult');
+        banner.className = 'result-banner show error';
+        banner.innerHTML = `<strong>✕ Upload Failed</strong><br>${data.error}`;
+        setStatus(data.error, 'error');
+        $('btnImport').disabled = false;
+        return;
+      }
+
       showProgress(true, 100, 'Upload complete');
 
       // Mark all rows as done

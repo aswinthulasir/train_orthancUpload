@@ -685,16 +685,23 @@ async def upload_study(payload: dict):
 
 
 @app.post("/fast-import")
-async def fast_import():
+async def fast_import(payload: Optional[dict] = None):
     global progress_counter, progress_total
     progress_counter = 0
     progress_total = 0
-    t_start = time.monotonic()
+    t_start = time.monotonic()                                                                                                                                                                                                                                                                                                                                  
 
-    print(f"[{get_ts()}] [SERVER] Scanning {SOURCE_PATH}...")
+    # Use path from the frontend if provided, otherwise fall back to SOURCE_PATH
+    import_path = (payload or {}).get("path", "").strip() if payload else ""
+    if not import_path:
+        import_path = SOURCE_PATH
+    if not os.path.isdir(import_path):
+        return {"error": f"Path not found: {import_path}"}
+
+    print(f"[{get_ts()}] [SERVER] Scanning {import_path}...")
     files_to_process = [
         os.path.join(root, f)
-        for root, _, filenames in os.walk(SOURCE_PATH)
+        for root, _, filenames in os.walk(import_path)
         for f in filenames
     ]
     total_files = len(files_to_process)
